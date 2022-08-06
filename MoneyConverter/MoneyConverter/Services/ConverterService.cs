@@ -25,12 +25,12 @@ public static class ConverterService
 
     }
 
-    public readonly struct SearchResult
+    public readonly struct ConversionResult
     {
         public readonly IEnumerable<IExchangeRate> ExchangeRates;
         public readonly Money Money;
 
-        public SearchResult(IEnumerable<IExchangeRate> exchangeRates, Money money)
+        public ConversionResult(IEnumerable<IExchangeRate> exchangeRates, Money money)
         {
             ExchangeRates = exchangeRates ?? throw new ArgumentNullException(nameof(exchangeRates));
             Money = money;
@@ -38,22 +38,22 @@ public static class ConverterService
 
         public bool IsEmpty => ExchangeRates == null;
 
-        public static bool operator < (SearchResult lhs, SearchResult rhs) => lhs.Money.Value < rhs.Money.Value;  
+        public static bool operator < (ConversionResult lhs, ConversionResult rhs) => lhs.Money.Value < rhs.Money.Value;  
 
-        public static bool operator > (SearchResult lhs, SearchResult rhs) => lhs.Money.Value > rhs.Money.Value;
+        public static bool operator > (ConversionResult lhs, ConversionResult rhs) => lhs.Money.Value > rhs.Money.Value;
     }
 
-    public static SearchResult GetExchangeRates(Money money, ICurrency destinationCurrency, IEnumerable<IExchangeRate> exchangeRates)
+    public static ConversionResult GetExchangeRates(Money money, ICurrency destinationCurrency, IEnumerable<IExchangeRate> exchangeRates)
     {
         var exchangeRate = exchangeRates.FirstOrDefault(er => er.SourceCurrency.Equals(money.Currency) && er.DestinationCurrency.Equals(destinationCurrency));
         if (exchangeRate != null)
-            return new SearchResult(new List<IExchangeRate> {exchangeRate}, money.Convert(exchangeRate));
+            return new ConversionResult(new List<IExchangeRate> {exchangeRate}, money.Convert(exchangeRate));
 
         var otherExchangeRates = exchangeRates.Where(er => er.SourceCurrency.Equals(money.Currency));
         if (!otherExchangeRates.Any())
             throw new NotSupportedException();
 
-        var result = new SearchResult();
+        var result = new ConversionResult();
 
         foreach (var firstExchangeRate in otherExchangeRates)
         {
@@ -63,7 +63,7 @@ public static class ConverterService
                 var childRates = GetExchangeRates(money.Convert(firstExchangeRate), destinationCurrency, filteredExchangeRates);
                 var rates = new List<IExchangeRate> { firstExchangeRate };
                 rates.AddRange(childRates.ExchangeRates);
-                var currentResult = new SearchResult(rates, childRates.Money);
+                var currentResult = new ConversionResult(rates, childRates.Money);
                 result = result.IsEmpty ? currentResult : (result > currentResult ? result : currentResult);
             }
             catch (NotSupportedException)
